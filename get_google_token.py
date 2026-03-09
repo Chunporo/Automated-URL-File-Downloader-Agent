@@ -5,13 +5,15 @@ This script helps you get an access token using the OAuth 2.0 flow.
 
 from google_auth_oauthlib.flow import Flow
 from google.auth.transport.requests import Request
-import json
 import os
 import pickle
+from pathlib import Path
 
 # Path to your credentials file
-CREDENTIALS_FILE = 'client_secret_885896162050-oad630f8k184bbov20jlbuq9vogt4ua9.apps.googleusercontent.com.json'
-TOKEN_PICKLE = 'token.pickle'
+BASE_DIR = Path(__file__).resolve().parent
+CREDENTIALS_FILE = BASE_DIR / 'client_secret_885896162050-oad630f8k184bbov20jlbuq9vogt4ua9.apps.googleusercontent.com.json'
+TOKEN_PICKLE = BASE_DIR / 'token.pickle'
+ENV_FILE = BASE_DIR / '.env'
 
 # Define the scopes you need access to
 # Common scopes:
@@ -21,6 +23,35 @@ TOKEN_PICKLE = 'token.pickle'
 SCOPES = [
     'https://www.googleapis.com/auth/drive.readonly',
 ]
+REDIRECT_URI = 'http://localhost:8080'
+
+
+def update_env_access_token(access_token: str) -> None:
+    """Write GOOGLE_ACCESS_TOKEN to .env."""
+    if not access_token:
+        return
+
+    lines: list[str] = []
+    if os.path.exists(ENV_FILE):
+        with open(ENV_FILE, 'r', encoding='utf-8') as env_file:
+            lines = env_file.readlines()
+
+    updated = False
+    for index, line in enumerate(lines):
+        if line.startswith('GOOGLE_ACCESS_TOKEN='):
+            lines[index] = f'GOOGLE_ACCESS_TOKEN={access_token}\n'
+            updated = True
+            break
+
+    if not updated:
+        if lines and not lines[-1].endswith('\n'):
+            lines[-1] += '\n'
+        lines.append(f'GOOGLE_ACCESS_TOKEN={access_token}\n')
+
+    with open(ENV_FILE, 'w', encoding='utf-8') as env_file:
+        env_file.writelines(lines)
+
+    print(f"✓ Updated {ENV_FILE} with GOOGLE_ACCESS_TOKEN")
 
 
 def get_credentials():
@@ -40,12 +71,16 @@ def get_credentials():
         if creds and creds.expired and creds.refresh_token:
             print("Refreshing expired token...")
             creds.refresh(Request())
+            update_env_access_token(creds.token)
         else:
             print("Starting OAuth flow...")
+            if REDIRECT_URI.startswith('http://localhost') or REDIRECT_URI.startswith('http://127.0.0.1'):
+                os.environ.setdefault('OAUTHLIB_INSECURE_TRANSPORT', '1')
+
             flow = Flow.from_client_secrets_file(
-                CREDENTIALS_FILE,
+                str(CREDENTIALS_FILE),
                 scopes=SCOPES,
-                redirect_uri='http://localhost:8080'
+                redirect_uri=REDIRECT_URI
             )
             
             # Get authorization URL
@@ -74,8 +109,13 @@ def get_credentials():
             # Save the credentials for next time
             with open(TOKEN_PICKLE, 'wb') as token:
                 pickle.dump(creds, token)
+
+            update_env_access_token(creds.token)
             
             print("\n✓ Credentials saved successfully!")
+
+    if creds and creds.valid:
+        update_env_access_token(creds.token)
     
     return creds
 
