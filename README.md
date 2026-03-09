@@ -1,6 +1,6 @@
 # URL Downloader Agent (LangChain)
 
-Implements the spec in `Welcome file.md` with platform routing and secure download flow.
+Implements URL downloader agent with platform routing and secure download flow.
 
 ## Features
 
