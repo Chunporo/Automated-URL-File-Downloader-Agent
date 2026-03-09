@@ -1,7 +1,6 @@
-from typing import TypedDict
+from typing import Any, Callable
 
-from langchain.agents import AgentExecutor, create_tool_calling_agent
-from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langchain_core.tools import tool
 from langchain_google_genai import ChatGoogleGenerativeAI
 
@@ -10,10 +9,6 @@ from .downloaders import GoogleDriveDownloader, MicrosoftDownloader, WebDownload
 from .models import DownloadResult, Platform
 from .router import route_platform
 from .url_extractor import extract_url_regex
-
-
-class ExtractedUrl(TypedDict):
-    url: str
 
 
 class URLDownloaderAgent:
@@ -44,7 +39,7 @@ class URLDownloaderAgent:
             )
         return self.download_from_url(url)
 
-    def build_langchain_executor(self) -> AgentExecutor:
+    def build_langchain_executor(self) -> Callable[[dict[str, str]], dict[str, Any]]:
         if not self.settings.google_api_key:
             raise ValueError("GOOGLE_API_KEY is required for LangChain tool-calling executor.")
 
@@ -68,19 +63,48 @@ class URLDownloaderAgent:
             return result.to_dict()
 
         tools = [extract_url_tool, route_platform_tool, download_url_tool]
-        prompt = ChatPromptTemplate.from_messages(
-            [
-                (
-                    "system",
-                    "You are a strict URL file downloader assistant. First extract URL, then route, then download via tools.",
-                ),
-                ("human", "{input}"),
-                ("placeholder", "{agent_scratchpad}"),
-            ]
-        )
+        tool_map = {tool.name: tool for tool in tools}
+
         llm = ChatGoogleGenerativeAI(
             model=self.settings.gemini_model,
             google_api_key=self.settings.google_api_key,
         )
-        agent = create_tool_calling_agent(llm, tools, prompt)
-        return AgentExecutor(agent=agent, tools=tools, verbose=False)
+        llm_with_tools = llm.bind_tools(tools)
+
+        def invoke(input_dict: dict[str, str]) -> dict[str, Any]:
+            messages = [
+                HumanMessage(content=input_dict["input"])
+            ]
+            
+            max_iterations = 10
+            for _ in range(max_iterations):
+                response = llm_with_tools.invoke(messages)
+                messages.append(response)
+                
+                if not response.tool_calls:
+                    return {
+                        "input": input_dict["input"],
+                        "output": response.content,
+                        "messages": messages,
+                    }
+                
+                for tool_call in response.tool_calls:
+                    tool_name = tool_call["name"]
+                    tool_args = tool_call["args"]
+                    
+                    if tool_name in tool_map:
+                        tool_result = tool_map[tool_name].invoke(tool_args)
+                        messages.append(
+                            ToolMessage(
+                                content=str(tool_result),
+                                tool_call_id=tool_call["id"],
+                            )
+                        )
+            
+            return {
+                "input": input_dict["input"],
+                "output": "Maximum iterations reached",
+                "messages": messages,
+            }
+        
+        return invoke

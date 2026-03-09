@@ -29,7 +29,7 @@ def main() -> None:
         return
 
     executor = agent.build_langchain_executor()
-    output = executor.invoke({"input": args.message})
+    output = executor({"input": args.message})
     print(json.dumps(output, ensure_ascii=False, indent=2, default=str))
 
 

@@ -20,7 +20,7 @@ class Settings:
             output_dir=Path(os.getenv("OUTPUT_DIR", "./downloads")).resolve(),
             http_timeout_seconds=int(os.getenv("HTTP_TIMEOUT_SECONDS", "30")),
             google_api_key=os.getenv("GOOGLE_API_KEY") or None,
-            gemini_model=os.getenv("GEMINI_MODEL", "gemini-2.0-flash"),
+            gemini_model=os.getenv("GEMINI_MODEL", "gemini-2.5-flash"),
             google_access_token=os.getenv("GOOGLE_ACCESS_TOKEN") or None,
             microsoft_graph_token=os.getenv("MICROSOFT_GRAPH_TOKEN") or None,
             web_bearer_token=os.getenv("WEB_BEARER_TOKEN") or None,
