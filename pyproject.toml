@@ -1,0 +1,27 @@
+[project]
+name = "url-downloader-agent"
+version = "0.1.0"
+description = "LangChain-based URL file downloader agent"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "langchain>=0.3.0",
+  "langchain-google-genai>=2.1.0",
+  "langchain-core>=0.3.0",
+  "requests>=2.32.0",
+  "beautifulsoup4>=4.12.0",
+  "python-dotenv>=1.0.0"
+]
+
+[project.scripts]
+url-downloader = "url_downloader_agent.main:main"
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

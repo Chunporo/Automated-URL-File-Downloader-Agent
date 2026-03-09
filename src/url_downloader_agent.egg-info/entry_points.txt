@@ -1,0 +1,2 @@
+[console_scripts]
+url-downloader = url_downloader_agent.main:main
