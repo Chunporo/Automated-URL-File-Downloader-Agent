@@ -22,17 +22,25 @@ class WebDownloader:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
 
-    def _headers(self) -> dict[str, str]:
+    def _headers(self, url: str | None = None) -> dict[str, str]:
         headers: dict[str, str] = {}
         if self.settings.web_bearer_token:
             headers["Authorization"] = f"Bearer {self.settings.web_bearer_token}"
+
+        if url:
+            hostname = (urlparse(url).hostname or "").lower()
+            if (
+                self.settings.google_access_token
+                and (hostname == "drive.google.com" or hostname == "docs.google.com")
+            ):
+                headers["Authorization"] = f"Bearer {self.settings.google_access_token}"
         return headers
 
     def _head(self, url: str) -> requests.Response:
         return requests.head(
             url,
             allow_redirects=True,
-            headers=self._headers(),
+            headers=self._headers(url),
             timeout=self.settings.http_timeout_seconds,
         )
 
@@ -40,7 +48,7 @@ class WebDownloader:
         return requests.get(
             url,
             allow_redirects=True,
-            headers=self._headers(),
+            headers=self._headers(url),
             timeout=self.settings.http_timeout_seconds,
         )
 

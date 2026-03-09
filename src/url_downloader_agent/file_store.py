@@ -1,7 +1,7 @@
 import mimetypes
 import re
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import unquote, urlparse
 
 
 def _sanitize_filename(name: str) -> str:
@@ -9,15 +9,19 @@ def _sanitize_filename(name: str) -> str:
     return sanitized or "downloaded_file"
 
 
+def _decode_filename(value: str) -> str:
+    return unquote(value).strip()
+
+
 def _filename_from_content_disposition(content_disposition: str | None) -> str | None:
     if not content_disposition:
         return None
     match = re.search(r"filename\*=UTF-8''([^;]+)", content_disposition, flags=re.IGNORECASE)
     if match:
-        return _sanitize_filename(match.group(1))
+        return _sanitize_filename(_decode_filename(match.group(1)))
     match = re.search(r'filename="?([^";]+)"?', content_disposition, flags=re.IGNORECASE)
     if match:
-        return _sanitize_filename(match.group(1))
+        return _sanitize_filename(_decode_filename(match.group(1)))
     return None
 
 
@@ -27,9 +31,9 @@ def resolve_filename(url: str, content_type: str | None, content_disposition: st
         return by_header
 
     if fallback:
-        base_name = _sanitize_filename(fallback)
+        base_name = _sanitize_filename(_decode_filename(fallback))
     else:
-        path_name = Path(urlparse(url).path).name
+        path_name = _decode_filename(Path(urlparse(url).path).name)
         base_name = _sanitize_filename(path_name or "downloaded_file")
 
     if "." in base_name:
